@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Network IDS – Model Metrics</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <span class="brand-icon">🛡️</span>
+    <span class="brand-text">NetGuard IDS</span>
+  </div>
+  <nav class="sidebar-nav">
+    <a href="/"        class="nav-link">📊 Dashboard</a>
+    <a href="/analyze" class="nav-link">🔍 Analyze Traffic</a>
+    <a href="/history" class="nav-link">📜 Attack History</a>
+    <a href="/metrics" class="nav-link active">📈 Model Metrics</a>
+</nav>
+  <div class="sidebar-footer">
+    <span class="dataset-badge">CICIDS2017</span>
+    <span class="model-badge">LSTM Model</span>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <h1 class="page-title">Model Metrics & Architecture</h1>
+      <p class="page-sub">Bidirectional LSTM trained on CICIDS2017</p>
+    </div>
+  </header>
+
+  <!-- MODEL NOT LOADED -->
+  {% if not model_loaded %}
+  <div class="alert alert-warn">
+    <span>⚠️</span>
+    <div>
+      <strong>Model not trained yet!</strong>
+      <p>Run: <code>python preprocess.py</code> then <code>python train_model.py</code></p>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- MODEL ARCHITECTURE -->
+  <section class="card">
+    <div class="card-header">
+      <h2>Model Architecture</h2>
+    </div>
+    <div class="arch-grid">
+      <div class="arch-layer input-layer">
+        <span class="arch-icon">📥</span>
+        <strong>Input Layer</strong>
+        <p>Shape: (1, 20)<br/>20 Network Flow Features</p>
+      </div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-layer lstm-layer">
+        <span class="arch-icon">🔄</span>
+        <strong>Bi-LSTM Layer 1</strong>
+        <p>128 units<br/>Bidirectional<br/>return_sequences=True</p>
+      </div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-layer dropout-layer">
+        <span class="arch-icon">🎲</span>
+        <strong>Dropout</strong>
+        <p>Rate: 0.3<br/>Prevents Overfitting</p>
+      </div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-layer lstm-layer">
+        <span class="arch-icon">🔄</span>
+        <strong>Bi-LSTM Layer 2</strong>
+        <p>64 units<br/>Bidirectional<br/>return_sequences=False</p>
+      </div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-layer norm-layer">
+        <span class="arch-icon">⚖️</span>
+        <strong>BatchNorm</strong>
+        <p>Stable Training<br/>Faster Convergence</p>
+      </div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-layer dense-layer">
+        <span class="arch-icon">🔗</span>
+        <strong>Dense Layer</strong>
+        <p>64 neurons<br/>ReLU Activation</p>
+      </div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-layer output-layer">
+        <span class="arch-icon">📤</span>
+        <strong>Output Layer</strong>
+        <p>{{ classes|length }} neurons<br/>Softmax Activation</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- DETECTED CLASSES -->
+  <section class="card">
+    <div class="card-header">
+      <h2>Detectable Attack Classes</h2>
+    </div>
+    <div class="classes-grid">
+      {% set colors = {
+        "BENIGN": "#4CAF50", "DDoS": "#F44336", "DoS": "#FF5722",
+        "Web Attack": "#FF9800", "SQL Injection": "#9C27B0",
+        "Port Scan": "#2196F3", "Botnet": "#795548",
+        "FTP Brute Force": "#00BCD4", "SSH Brute Force": "#009688",
+        "Heartbleed": "#E91E63", "Infiltration": "#607D8B"
+      } %}
+      {% for cls in classes %}
+      <div class="class-chip" style="border-left: 4px solid {{ colors.get(cls, '#607D8B') }}">
+        <strong style="color:{{ colors.get(cls, '#607D8B') }}">{{ cls }}</strong>
+        <span class="class-type">
+          {% if cls == "BENIGN" %}Normal Traffic
+          {% elif cls in ["DDoS", "DoS"] %}Volumetric Attack
+          {% elif cls in ["Web Attack", "SQL Injection"] %}Application Attack
+          {% elif cls == "Port Scan" %}Reconnaissance
+          {% elif cls == "Botnet" %}Malware
+          {% elif cls in ["FTP Brute Force", "SSH Brute Force"] %}Credential Attack
+          {% elif cls == "Heartbleed" %}Vulnerability Exploit
+          {% elif cls == "Infiltration" %}Insider Threat
+          {% else %}Network Attack
+          {% endif %}
+        </span>
+      </div>
+      {% else %}
+        <p style="color:#aaa; padding:1rem">Train the model first to see classes.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- TRAINING CHARTS -->
+  {% if chart_exists or cm_exists %}
+  <section class="card">
+    <div class="card-header"><h2>Training Plots</h2></div>
+    <div class="plots-grid">
+      {% if chart_exists %}
+      <div class="plot-wrap">
+        <h3>Accuracy & Loss History</h3>
+        <img src="/model_image/training_history.png" alt="Training History" class="plot-img" />
+      </div>
+      {% endif %}
+      {% if cm_exists %}
+      <div class="plot-wrap">
+        <h3>Confusion Matrix</h3>
+        <img src="/model_image/confusion_matrix.png" alt="Confusion Matrix" class="plot-img" />
+      </div>
+      {% endif %}
+    </div>
+  </section>
+  {% else %}
+  <div class="alert alert-info">
+    <span>ℹ️</span>
+    <div>
+      <strong>Training plots not available yet.</strong>
+      <p>Run <code>python train_model.py</code> to generate accuracy & confusion matrix plots.</p>
+    </div>
+  </div>
+  {% endif %}
+  
+      </table>
+    </div>
+  </section>
+
+</main>
+</body>
+</html>

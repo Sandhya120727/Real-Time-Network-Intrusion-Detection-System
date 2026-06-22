@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Network IDS – Analyze Traffic</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <span class="brand-icon">🛡️</span>
+    <span class="brand-text">NetGuard IDS</span>
+  </div>
+  <nav class="sidebar-nav">
+    <a href="/"        class="nav-link">📊 Dashboard</a>
+    <a href="/analyze" class="nav-link active">🔍 Analyze Traffic</a>
+    <a href="/history" class="nav-link">📜 Attack History</a>
+    <a href="/metrics" class="nav-link">📈 Model Metrics</a>
+</nav>
+  <div class="sidebar-footer">
+    <span class="dataset-badge">CICIDS2017</span>
+    <span class="model-badge">LSTM Model</span>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <h1 class="page-title">Analyze Network Traffic</h1>
+      <p class="page-sub">Upload a CICIDS2017 formatted CSV to detect intrusions</p>
+    </div>
+    <div class="topbar-right">
+    </div>
+  </header>
+
+  <!-- MODEL NOT LOADED WARNING -->
+  {% if not model_loaded %}
+  <div class="alert alert-warn">
+    <span>⚠️</span>
+    <div>
+      <strong>Model not trained yet!</strong>
+      <p>Please run these commands first:<br/>
+         <code>python preprocess.py</code> → then → <code>python train_model.py</code>
+      </p>
+    </div>
+  </div>
+  {% endif %}
+<!-- LIVE CAPTURE SECTION -->
+<section class="card" style="margin-bottom:24px">
+  <div class="card-header">
+    <h2>🔴 Live Network Capture</h2>
+    <span class="card-badge">Real-Time</span>
+  </div>
+  <p style="color:#8b949e;font-size:.85rem;margin-bottom:16px">
+    Captures real packets from your network using Scapy and runs LSTM detection on them.
+  </p>
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <select id="captureDuration" style="background:#0d1117;color:#e8ecf4;border:1px solid #30363d;padding:8px 14px;border-radius:8px;font-size:.85rem">
+      <option value="15">15 seconds</option>
+      <option value="30" selected>30 seconds</option>
+      <option value="60">60 seconds</option>
+    </select>
+    <button class="btn-primary" onclick="startLiveCapture()">
+      🔴 Start Live Capture
+    </button>
+    <span id="captureStatus" style="font-size:.82rem;color:#8b949e"></span>
+  </div>
+</section>
+  <!-- UPLOAD SECTION -->
+  <section class="card upload-card">
+    <div class="card-header">
+      <h2>Upload CSV File</h2>
+    </div>
+
+    <!-- Drop Zone -->
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-icon">📂</div>
+      <p class="drop-title">Drag & Drop your CSV file here</p>
+      <p class="drop-sub">or click the button below to browse</p>
+      <label for="fileInput" class="btn-upload">Browse File</label>
+      <input type="file" id="fileInput" accept=".csv" style="display:none" />
+      <p class="file-hint">Supports: CICIDS2017 CSV format • Max 50MB • Up to 1000 rows analyzed per batch</p>
+    </div>
+
+    <!-- Selected File Info -->
+    <div class="file-info" id="fileInfo" style="display:none">
+      <span class="file-icon">📄</span>
+      <div class="file-details">
+        <strong id="fileName">–</strong>
+        <span id="fileSize">–</span>
+      </div>
+      <button class="btn-primary" id="analyzeBtn" onclick="analyzeFile()">
+        🔍 Run Detection
+      </button>
+    </div>
+  </section>
+
+  <!-- LOADING STATE -->
+  <div class="loading-overlay" id="loading" style="display:none">
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <p>Running LSTM inference on your data...</p>
+      <p class="loading-sub">This may take a few seconds</p>
+    </div>
+  </div>
+
+  <!-- RESULTS SECTION (hidden until analysis runs) -->
+  <section id="resultsSection" style="display:none">
+
+    <!-- Summary Cards -->
+    <div class="stats-grid" id="resultSummary"></div>
+
+    <!-- Charts + Table Row -->
+    <div class="dashboard-grid">
+
+      <!-- Bar Chart -->
+      <div class="card chart-card">
+        <div class="card-header">
+          <h2>Attack Distribution</h2>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="resultChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Results Table -->
+      <div class="card table-card">
+        <div class="card-header">
+          <h2>Detection Results</h2>
+          <button class="btn-small" onclick="downloadResults()">⬇ Export CSV</button>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Row</th>
+                <th>Label</th>
+                <th>Confidence</th>
+                <th>Severity</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<!-- SCRIPTS -->
+<script>
+  let lastResults = [];
+  let resultChart = null;
+
+  const COLORS = {
+    "BENIGN"          : "#4CAF50",
+    "DDoS"            : "#F44336",
+    "DoS"             : "#FF5722",
+    "Web Attack"      : "#FF9800",
+    "SQL Injection"   : "#9C27B0",
+    "Port Scan"       : "#2196F3",
+    "Botnet"          : "#795548",
+    "FTP Brute Force" : "#00BCD4",
+    "SSH Brute Force" : "#009688",
+    "Heartbleed"      : "#E91E63",
+    "Infiltration"    : "#607D8B",
+  };
+
+  // ── File Input ──
+  const dropZone  = document.getElementById("dropZone");
+  const fileInput = document.getElementById("fileInput");
+  const fileInfo  = document.getElementById("fileInfo");
+
+  fileInput.addEventListener("change", e => showFileInfo(e.target.files[0]));
+
+  dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+  dropZone.addEventListener("dragleave", ()  => dropZone.classList.remove("drag-over"));
+  dropZone.addEventListener("drop", e => {
+    e.preventDefault();
+    dropZone.classList.remove("drag-over");
+    const file = e.dataTransfer.files[0];
+    if (file) { fileInput.files = e.dataTransfer.files; showFileInfo(file); }
+  });
+
+  function showFileInfo(file) {
+    if (!file || !file.name.endsWith(".csv")) {
+      alert("Please select a .csv file.");
+      return;
+    }
+    document.getElementById("fileName").textContent = file.name;
+    document.getElementById("fileSize").textContent = (file.size / 1024).toFixed(1) + " KB";
+    fileInfo.style.display = "flex";
+  }
+
+  // ── Analyze ──
+  async function analyzeFile() {
+    const file = fileInput.files[0];
+    if (!file) { alert("Please select a file first."); return; }
+
+    document.getElementById("loading").style.display = "flex";
+    document.getElementById("resultsSection").style.display = "none";
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res  = await fetch("/predict", { method: "POST", body: formData });
+      const data = await res.json();
+      document.getElementById("loading").style.display = "none";
+
+      if (!res.ok || data.error) {
+        alert("Error: " + (data.error || "Unknown error"));
+        return;
+      }
+
+      lastResults = data.results;
+renderResults(data);
+
+// Show alerts for attacks found
+if (data.attacks_found > 0) {
+    const attacks = data.results.filter(r => r.label !== "BENIGN");
+    const topAttacks = attacks.slice(0, 3); // Show max 3 alerts
+    topAttacks.forEach((r, i) => {
+        setTimeout(() => showAlert(r.label, r.confidence, r.severity), i * 1000);
+    });
+}
+    } catch(e) {
+      document.getElementById("loading").style.display = "none";
+      alert("Request failed: " + e.message);
+    }
+  }
+
+  // ── Render Results ──
+  function renderResults(data) {
+    document.getElementById("resultsSection").style.display = "block";
+
+    // Summary cards
+    const summary = document.getElementById("resultSummary");
+    summary.innerHTML = `
+      <div class="stat-card blue"><div class="stat-icon">📦</div><div class="stat-info"><span class="stat-label">Total Rows</span><span class="stat-value">${data.total_rows}</span></div></div>
+      <div class="stat-card red"><div class="stat-icon">🚨</div><div class="stat-info"><span class="stat-label">Attacks Found</span><span class="stat-value">${data.attacks_found}</span></div></div>
+      <div class="stat-card green"><div class="stat-icon">✅</div><div class="stat-info"><span class="stat-label">Benign</span><span class="stat-value">${data.benign_count}</span></div></div>
+      <div class="stat-card purple"><div class="stat-icon">📊</div><div class="stat-info"><span class="stat-label">Attack Rate</span><span class="stat-value">${((data.attacks_found/data.total_rows)*100).toFixed(1)}%</span></div></div>
+    `;
+
+    // Chart
+    const labels = Object.keys(data.distribution);
+    const values = Object.values(data.distribution);
+    const colors = labels.map(l => COLORS[l] || "#90A4AE");
+
+    if (resultChart) { resultChart.destroy(); }
+    resultChart = new Chart(document.getElementById("resultChart"), {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [{
+          label: "Count",
+          data: values,
+          backgroundColor: colors,
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: "#bbb" }, grid: { color: "#333" } },
+          y: { ticks: { color: "#bbb" }, grid: { color: "#333" } }
+        }
+      }
+    });
+
+    // Table
+    const tbody = document.getElementById("resultsBody");
+    tbody.innerHTML = "";
+    data.results.forEach(r => {
+      tbody.innerHTML += `
+        <tr>
+          <td>${r.row}</td>
+          <td><span class="label-chip" style="background:${r.color}20;color:${r.color};border:1px solid ${r.color}">${r.label}</span></td>
+          <td>
+            <div class="conf-bar">
+              <div class="conf-fill" style="width:${r.confidence}%;background:${r.color}"></div>
+              <span>${r.confidence}%</span>
+            </div>
+          </td>
+          <td><span class="sev-badge sev-${r.severity.toLowerCase()}">${r.severity}</span></td>
+          <td>${r.timestamp}</td>
+        </tr>`;
+    });
+  }
+
+  async function startLiveCapture() {
+    const duration = document.getElementById("captureDuration").value;
+    const statusEl = document.getElementById("captureStatus");
+    
+    statusEl.textContent = `⏳ Capturing for ${duration} seconds... please wait`;
+    document.getElementById("loading").style.display = "flex";
+    document.getElementById("resultsSection").style.display = "none";
+
+    try {
+        const res = await fetch("/live_capture", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({duration: parseInt(duration)})
+        });
+        const data = await res.json();
+        document.getElementById("loading").style.display = "none";
+
+        if (!res.ok || data.error) {
+            alert("Error: " + (data.error || "Unknown error"));
+            statusEl.textContent = "";
+            return;
+        }
+
+        statusEl.textContent = `✅ Captured and analyzed ${data.total_rows} flows!`;
+        lastResults = data.results;
+        renderResults(data);
+    } catch(e) {
+        document.getElementById("loading").style.display = "none";
+        statusEl.textContent = "";
+        alert("Capture failed: " + e.message);
+    }
+}// ── Export CSV ──
+  function downloadResults() {
+    if (!lastResults.length) return;
+    const header = "Row,Label,Confidence,Severity,Timestamp\n";
+    const rows   = lastResults.map(r => `${r.row},${r.label},${r.confidence}%,${r.severity},${r.timestamp}`).join("\n");
+    const blob   = new Blob([header + rows], { type: "text/csv" });
+    const a      = document.createElement("a");
+    a.href       = URL.createObjectURL(blob);
+    a.download   = "ids_results.csv";
+    a.click();
+  }
+  function showAlert(label, confidence, severity) {
+    if (label === "BENIGN") return;
+    
+    const alert = document.createElement("div");
+    alert.style.cssText = `
+        position:fixed; top:20px; right:20px; z-index:9999;
+        background:#1a0a0a; border:2px solid #ff5e5e;
+        border-radius:12px; padding:16px 20px; max-width:320px;
+        box-shadow:0 0 30px rgba(255,94,94,0.4);
+        animation:slideIn 0.3s ease;
+    `;
+    alert.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <span style="font-size:1.4rem">🚨</span>
+            <strong style="color:#ff5e5e;font-size:1rem">ATTACK DETECTED!</strong>
+        </div>
+        <p style="color:#e8ecf4;font-size:.85rem;margin-bottom:4px">Type: <strong style="color:#ff5e5e">${label}</strong></p>
+        <p style="color:#e8ecf4;font-size:.85rem;margin-bottom:4px">Confidence: <strong>${confidence}%</strong></p>
+        <p style="color:#e8ecf4;font-size:.85rem">Severity: <strong style="color:#f5c542">${severity}</strong></p>
+        <button onclick="this.parentElement.remove()" style="margin-top:10px;background:#ff5e5e;color:#000;border:none;padding:5px 14px;border-radius:6px;cursor:pointer;font-weight:700;width:100%">Dismiss</button>
+    `;
+    document.body.appendChild(alert);
+    setTimeout(() => alert.remove(), 8000);
+}
+</script>
+</body>
+</html>

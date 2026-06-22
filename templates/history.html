@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Network IDS – Attack History</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <span class="brand-icon">🛡️</span>
+    <span class="brand-text">NetGuard IDS</span>
+  </div>
+  <nav class="sidebar-nav">
+    <a href="/"        class="nav-link">📊 Dashboard</a>
+    <a href="/analyze" class="nav-link">🔍 Analyze Traffic</a>
+    <a href="/history" class="nav-link active">📜 Attack History</a>
+    <a href="/metrics" class="nav-link">📈 Model Metrics</a>
+  </nav>
+  <div class="sidebar-footer">
+    <span class="dataset-badge">CICIDS2017</span>
+    <span class="model-badge">LSTM Model</span>
+  </div>
+</aside>
+
+<main class="main">
+  <header class="topbar">
+    <div class="topbar-left">
+      <h1 class="page-title">Attack History</h1>
+      <p class="page-sub">All detections stored in MongoDB Atlas</p>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="card-header">
+      <h2>Historical Attack Logs</h2>
+      <span style="font-size:.82rem;color:#8b949e">Showing last 100 records from MongoDB</span>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Timestamp</th>
+            <th>IP Address</th>
+            <th>Attack Type</th>
+            <th>Confidence</th>
+            <th>Severity</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if logs %}
+            {% set colors = {
+              "BENIGN": "#4CAF50", "DDoS": "#F44336", "DoS": "#FF5722",
+              "Web Attack": "#FF9800", "SQL Injection": "#9C27B0",
+              "Port Scan": "#2196F3", "Botnet": "#795548",
+              "FTP Brute Force": "#00BCD4", "SSH Brute Force": "#009688",
+              "Heartbleed": "#E91E63", "Infiltration": "#607D8B"
+            } %}
+            {% for log in logs %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td style="font-family:'JetBrains Mono',monospace;font-size:.78rem">{{ log.timestamp }}</td>
+              <td style="font-family:'JetBrains Mono',monospace;font-size:.78rem">{{ log.ip_address }}</td>
+              <td>
+                <span class="label-chip" style="background:{{ colors.get(log.attack_type, '#607D8B') }}20;color:{{ colors.get(log.attack_type, '#607D8B') }};border:1px solid {{ colors.get(log.attack_type, '#607D8B') }}">
+                  {{ log.attack_type }}
+                </span>
+              </td>
+              <td>
+                <div class="conf-bar">
+                  <div class="conf-fill" style="width:{{ log.confidence }}%;background:{{ colors.get(log.attack_type, '#607D8B') }}"></div>
+                  <span>{{ log.confidence }}%</span>
+                </div>
+              </td>
+              <td>
+                <span class="sev-badge sev-{{ log.severity | lower }}">{{ log.severity }}</span>
+              </td>
+              <td style="font-size:.78rem;color:#8b949e">{{ log.source }}</td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="7" class="empty-row">No attack logs yet. Upload a CSV or run live capture first.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+</body>
+</html>
