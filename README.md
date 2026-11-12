@@ -1,9 +1,9 @@
-# 🛡️ NetGuard IDS — Real-Time Network Intrusion Detection System
+# NetGuard IDS — Real-Time Network Intrusion Detection System
 ### Using CICIDS2017 Dataset + Bidirectional LSTM Neural Network
 
 ---
 
-## 📁 PROJECT FOLDER STRUCTURE
+## PROJECT FOLDER STRUCTURE
 
 ```
 IDS_Project/
@@ -13,7 +13,7 @@ IDS_Project/
 ├── train_model.py        ← Step 2: LSTM model training
 ├── requirements.txt      ← All Python packages needed
 │
-├── data/                 ← ⚠️ PUT YOUR CICIDS2017 CSV FILES HERE
+├── data/                 ← PUT YOUR CICIDS2017 CSV FILES HERE
 │   └── (place CSV files here)
 │
 ├── models/               ← Auto-created after training
@@ -46,7 +46,7 @@ Before starting, make sure you have these installed on your computer:
 ```
 python --version
 ```
-✅ You need Python 3.8, 3.9, or 3.10 (NOT 3.11+ for TensorFlow 2.13)
+You need Python 3.8, 3.9, or 3.10 (NOT 3.11+ for TensorFlow 2.13)
 
 ### Check pip
 ```
@@ -156,7 +156,7 @@ python preprocess.py
 
 ---
 
-## 🧠 STEP 4 — TRAIN THE LSTM MODEL
+## STEP 4 — TRAIN THE LSTM MODEL
 
 ```
 python train_model.py
@@ -205,7 +205,7 @@ DoS                  0.96      0.95     0.95
 
 ---
 
-## 🌐 STEP 5 — RUN THE WEB APPLICATION
+## STEP 5 — RUN THE WEB APPLICATION
 
 ```
 python app.py
@@ -225,13 +225,13 @@ http://127.0.0.1:5000
 ```
 
 You will see the **NetGuard IDS Dashboard** with:
-- 📊 Dashboard – Overview stats and charts
-- 🔍 Analyze Traffic – Upload CSV to detect attacks
-- 📈 Model Metrics – Architecture, confusion matrix, accuracy plots
+- Dashboard – Overview stats and charts
+- Analyze Traffic – Upload CSV to detect attacks
+- Model Metrics – Architecture, confusion matrix, accuracy plots
 
 ---
 
-## 🔍 STEP 6 — TEST THE DETECTION
+## STEP 6 — TEST THE DETECTION
 
 ### To test if detection works:
 
@@ -250,7 +250,7 @@ You will see the **NetGuard IDS Dashboard** with:
 
 ---
 
-## ❓ COMMON ERRORS & FIXES
+## COMMON ERRORS & FIXES
 
 ### Error: "No CSV files found in data/"
 **Fix:** Make sure you placed CICIDS2017 CSV files inside the `data/` folder.
@@ -305,7 +305,7 @@ Expected accuracy: **95-98%** on CICIDS2017 test data.
 
 ---
 
-## 📝 QUICK REFERENCE COMMANDS
+## QUICK REFERENCE COMMANDS
 
 ```bash
 # 1. Install packages
