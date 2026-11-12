@@ -38,7 +38,7 @@ IDS_Project/
 
 ---
 
-## ⚙️ STEP 0 — PREREQUISITES
+##  STEP 0 — PREREQUISITES
 
 Before starting, make sure you have these installed on your computer:
 
@@ -55,7 +55,7 @@ pip --version
 
 ---
 
-## 📥 STEP 1 — DOWNLOAD THE CICIDS2017 DATASET
+## STEP 1 — DOWNLOAD THE CICIDS2017 DATASET
 
 1. Go to this official website:
    **https://www.unb.ca/cic/datasets/ids-2017.html**
@@ -82,7 +82,7 @@ pip --version
 
 ---
 
-## 📦 STEP 2 — INSTALL DEPENDENCIES
+## STEP 2 — INSTALL DEPENDENCIES
 
 Open Terminal / Command Prompt inside the `IDS_Project/` folder.
 
@@ -106,11 +106,11 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-> ⏳ This will take 5-10 minutes. TensorFlow is a large package.
+> This will take 5-10 minutes. TensorFlow is a large package.
 
 ---
 
-## 🔄 STEP 3 — PREPROCESS THE DATA
+## STEP 3 — PREPROCESS THE DATA
 
 ```
 python preprocess.py
